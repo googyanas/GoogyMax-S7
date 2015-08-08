@@ -5,7 +5,7 @@ export KCONFIG_NOTIMESTAMP=true
 export ARCH=arm64
 export SUBARCH=arm64
 
-VER="\"-GoogyMax-S7-v$1\""
+VER="\"-GoogyMax-S7-MM-v$1\""
 cp -f /home/anas/S7/Kernel/arch/arm64/configs/googymax-s7_defconfig /home/anas/S7/googymax-s7_defconfig
 sed "s#^CONFIG_LOCALVERSION=.*#CONFIG_LOCALVERSION=$VER#" /home/anas/S7/googymax-s7_defconfig > /home/anas/S7/Kernel/arch/arm64/configs/googymax-s7_defconfig
 
