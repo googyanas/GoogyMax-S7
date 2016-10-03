@@ -62,12 +62,19 @@ int bbd_do_transfer(struct ssp_data *data, struct ssp_msg *msg,
 
 	mutex_lock(&data->comm_mutex);
 
+	if (timeout) {
+		wake_lock(&data->ssp_comm_wake_lock);
+	}
+
 	ssp_down = data->bSspShutdown;
 
 	if (ssp_down) {
 		pr_err("[SSPBBD]: ssp_down == true. returning\n");
 		clean_msg(msg);
 		mdelay(5);
+		if (timeout) {
+			wake_unlock(&data->ssp_comm_wake_lock);
+		}
 		mutex_unlock(&data->comm_mutex);
 		return -1;
 	}
@@ -90,6 +97,9 @@ int bbd_do_transfer(struct ssp_data *data, struct ssp_msg *msg,
 			pr_err("[SSPBBD]: packet size of ssp must be less than %d, but %d\n", MAX_SSP_PACKET_SIZE, (int)msg->length); 
 		clean_msg(msg);
 		mutex_unlock(&data->pending_mutex);
+		if (timeout) {
+			wake_unlock(&data->ssp_comm_wake_lock);
+		}
 		mutex_unlock(&data->comm_mutex);
 		return -1;
 	}
@@ -141,6 +151,9 @@ int bbd_do_transfer(struct ssp_data *data, struct ssp_msg *msg,
 	if (use_no_irq)
 		clean_msg(msg);
 
+	if (timeout) {
+		wake_unlock(&data->ssp_comm_wake_lock);
+	}
 	mutex_unlock(&data->comm_mutex);
 
 	return status;
@@ -300,6 +313,11 @@ retries:
 	mutex_unlock(&data->ssp_enable_mutex);
 
 	dprint("mcu is initiialized (retries=%d)\n", retries);
+
+#ifdef CONFIG_SENSORS_SSP_HIFI_BATCHING
+	/* initialize variables for timestamp */
+	ssp_reset_batching_resources(data);
+#endif
 
 	/* recover previous state */
 	sync_sensor_state(data);

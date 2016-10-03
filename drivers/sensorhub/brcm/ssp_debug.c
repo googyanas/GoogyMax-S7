@@ -242,9 +242,6 @@ void reset_mcu(struct ssp_data *data)
 	ssp_enable(data, false);
 	clean_pending_list(data);
 	bbd_mcu_reset();
-#ifdef CONFIG_SENSORS_SSP_HIFI_BATCHING
-	ssp_reset_batching_resources(data);
-#endif
 }
 
 void sync_sensor_state(struct ssp_data *data)
@@ -293,6 +290,7 @@ void sync_sensor_state(struct ssp_data *data)
 	}
 
 	set_proximity_threshold(data);
+	set_light_coef(data);
 
 	set_gyro_cal_lib_enable(data, true);
 
@@ -364,6 +362,11 @@ static void print_sensordata(struct ssp_data *data, unsigned int uSensor)
 	case PROXIMITY_SENSOR:
 		ssp_dbg("[SSP] %u : %d, %d (%ums)\n", uSensor,
 			data->buf[uSensor].prox[0], data->buf[uSensor].prox[1],
+			get_msdelay(data->adDelayBuf[uSensor]));
+		break;
+	case PROXIMITY_ALERT_SENSOR:
+		ssp_dbg("[SSP] %u : %d, %d (%ums)\n", uSensor,
+			data->buf[uSensor].prox_alert[0], data->buf[uSensor].prox_alert[1],
 			get_msdelay(data->adDelayBuf[uSensor]));
 		break;
 	case STEP_DETECTOR:

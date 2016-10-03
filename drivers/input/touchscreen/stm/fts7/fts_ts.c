@@ -2027,7 +2027,8 @@ static int fts_parse_dt(struct i2c_client *client)
 	}
 #endif
 
-	if((lcdtype & LCD_ID2_MODEL_MASK) == MODEL_HEROPLUS){
+	if(((lcdtype & LCD_ID2_MODEL_MASK) == MODEL_HEROPLUS) ||
+		(((lcdtype & LCD_ID2_MODEL_MASK) == MODEL_HEROEDGE))){
 		pdata->stm_ver = STM_VER7;
 		tsp_debug_err(true, dev,"%s:FTS7AD56 - STM_VER(0x%2X)\n", __func__, pdata->stm_ver);
 		pdata->max_x = 1439;
