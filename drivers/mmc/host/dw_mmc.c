@@ -1318,7 +1318,9 @@ static void mci_send_cmd(struct dw_mci_slot *slot, u32 cmd, u32 arg)
 		cmd, arg, cmd_status);
 
 	/* Debuggin for interrupt storming */
+#ifdef CONFIG_MMC_DW_DEBUG
 	dw_mci_debug_flag = 1;
+#endif
 	dw_mci_reg_dump(host);
 }
 
@@ -2036,9 +2038,11 @@ static int dw_mci_command_complete(struct dw_mci *host, struct mmc_command *cmd)
 					cmd->opcode, cmd->error, status);
 		}
 
+#ifdef CONFIG_MMC_DW_DEBUG
 		ST_LOG("%s: CMD command %d : %d, status = %#x\n",
 			mmc_hostname(host->cur_slot->mmc),
 			cmd->opcode, cmd->error, status);
+#endif
 
 		/* newer ip versions need a delay between retries */
 		if (host->quirks & DW_MCI_QUIRK_RETRY_DELAY)
@@ -2741,8 +2745,10 @@ static irqreturn_t dw_mci_interrupt(int irq, void *dev_id)
 	status = mci_readl(host, RINTSTS);
 	pending = mci_readl(host, MINTSTS); /* read-only mask reg */
 
+#ifdef CONFIG_MMC_DW_DEBUG
 	if (dw_mci_debug_flag == 1)
 		dev_err(host->dev, "## RINTSTS 0x %08x\n", pending);
+#endif
 
 	/*
 	 * DTO fix - version 2.10a and below, and only if internal DMA
