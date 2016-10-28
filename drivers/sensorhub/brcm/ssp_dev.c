@@ -201,6 +201,7 @@ static void initialize_variable(struct ssp_data *data)
 	data->bIsReset = false;
 #endif
 	initialize_function_pointer(data);
+	data->uNoRespSensorCnt = 0;
 }
 
 int initialize_mcu(struct ssp_data *data)
