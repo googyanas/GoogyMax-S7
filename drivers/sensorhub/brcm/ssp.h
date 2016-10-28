@@ -862,6 +862,7 @@ struct ssp_data {
 #if defined(CONFIG_SSP_MOTOR)
 	int motor_state;
 #endif
+	unsigned int uNoRespSensorCnt;
 	char sensor_state[SENSOR_MAX + 1];
 };
 
