@@ -120,9 +120,13 @@ s32 nls_cmp_uniname(struct super_block *sb, u16 *a, u16 *b)
 #define CASE_LOWER_BASE (0x08)	/* base is lower case */
 #define CASE_LOWER_EXT  (0x10)	/* extension is lower case */
 
+/* lossy = 0(false): no lossy
+ * lossy = 1(true) : just detected incorrect filename(s)
+ * lossy = 2       : name length is over than DOS_NAME_LENGTH
+ */
 s32 nls_uni16s_to_sfn(struct super_block *sb, UNI_NAME_T *p_uniname, DOS_NAME_T *p_dosname, s32 *p_lossy)
 {
-	s32 i, j, len, lossy = NLS_NAME_NO_LOSSY;
+	s32 i, j, len, lossy = false;
 	u8 buf[MAX_CHARSET_SIZE];
 	u8 lower = 0, upper = 0;
 	u8 *dosname = p_dosname->name;
@@ -135,6 +139,22 @@ s32 nls_uni16s_to_sfn(struct super_block *sb, UNI_NAME_T *p_uniname, DOS_NAME_T 
 		*(dosname+i) = ' ';
 
 	/* DOT and DOTDOT are handled by VFS layer */
+	/*
+	if (!nls_cmp_uniname(sb, uniname, (u16 *) UNI_CUR_DIR_NAME)) {
+		*(dosname) = '.';
+		p_dosname->name_case = 0x0;
+		if (p_lossy != NULL) *p_lossy = false;
+		return;
+	}
+
+	if (!nls_cmp_uniname(sb, uniname, (u16 *) UNI_PAR_DIR_NAME)) {
+		*(dosname) = '.';
+		*(dosname+1) = '.';
+		p_dosname->name_case = 0x0;
+		if (p_lossy != NULL) *p_lossy = false;
+		return;
+	}
+	*/
 
 	/* search for the last embedded period */
 	last_period = NULL;
@@ -149,8 +169,7 @@ s32 nls_uni16s_to_sfn(struct super_block *sb, UNI_NAME_T *p_uniname, DOS_NAME_T 
 			if (last_period == NULL) break;
 
 			if (uniname <= last_period) {
-				if (uniname < last_period)
-					lossy |= NLS_NAME_OVERLEN;
+				if (uniname < last_period) lossy = true;
 				uniname = last_period + 1;
 			}
 		}
@@ -158,14 +177,12 @@ s32 nls_uni16s_to_sfn(struct super_block *sb, UNI_NAME_T *p_uniname, DOS_NAME_T 
 		if (*uniname == (u16) '\0') {
 			break;
 		} else if (*uniname == (u16) ' ') {
-			lossy |= NLS_NAME_LOSSY;
+			lossy = true;
 		} else if (*uniname == (u16) '.') {
-			if (uniname < last_period)
-				lossy |= NLS_NAME_LOSSY;
-			else
-				i = 8;
+			if (uniname < last_period) lossy = true;
+			else i = 8;
 		} else if (nls_wstrchr(bad_dos_chars, *uniname)) {
-			lossy |= NLS_NAME_LOSSY;
+			lossy = true;
 			*(dosname+i) = '_';
 			i++;
 		} else {
@@ -211,7 +228,7 @@ s32 nls_uni16s_to_sfn(struct super_block *sb, UNI_NAME_T *p_uniname, DOS_NAME_T 
 	if (*dosname == 0xE5) 
 			*dosname = 0x05;
 	if (*uniname != 0x0) 
-			lossy |= NLS_NAME_OVERLEN;
+			lossy = 2;
 
 	if (upper & lower) 
 			p_dosname->name_case = 0xFF;
@@ -293,7 +310,7 @@ static s32 __nls_utf16s_to_vfsname(struct super_block *sb, UNI_NAME_T *p_uniname
 
 static s32 __nls_vfsname_to_utf16s(struct super_block *sb, const u8 *p_cstring, const s32 len, UNI_NAME_T *p_uniname, s32 *p_lossy)
 {
-	s32 i, unilen, lossy = NLS_NAME_NO_LOSSY;
+	s32 i, unilen, lossy = false;
 	u16 upname[MAX_NAME_LENGTH+1];
 	u16 *uniname = p_uniname->name;
 
@@ -318,7 +335,7 @@ static s32 __nls_vfsname_to_utf16s(struct super_block *sb, const u8 *p_cstring, 
 
 	for (i=0; i<unilen; i++) {
 		if ((*uniname < 0x0020) || nls_wstrchr(bad_uni_chars, *uniname))
-			lossy |= NLS_NAME_LOSSY;
+			lossy = true;
 
 		*(upname+i) = nls_upper(sb, *uniname);
 		uniname++;
@@ -371,7 +388,7 @@ static s32 __nls_uni16s_to_vfsname(struct super_block *sb, UNI_NAME_T *p_uniname
 
 static s32 __nls_vfsname_to_uni16s(struct super_block *sb, const u8 *p_cstring, const s32 len, UNI_NAME_T *p_uniname, s32 *p_lossy)
 {
-	s32 i, unilen, lossy = NLS_NAME_NO_LOSSY;
+	s32 i, unilen, lossy = false;
 	u16 upname[MAX_NAME_LENGTH+1];
 	u16 *uniname = p_uniname->name;
 	struct nls_table *nls = SDFAT_SB(sb)->nls_io;
@@ -383,7 +400,7 @@ static s32 __nls_vfsname_to_uni16s(struct super_block *sb, const u8 *p_cstring, 
 		i += convert_ch_to_uni(nls, (u8*)(p_cstring+i), uniname, &lossy);
 
 		if ((*uniname < 0x0020) || nls_wstrchr(bad_uni_chars, *uniname))
-			lossy |= NLS_NAME_LOSSY;
+			lossy = true;
 
 		*(upname+unilen) = nls_upper(sb, *uniname);
 
@@ -392,7 +409,7 @@ static s32 __nls_vfsname_to_uni16s(struct super_block *sb, const u8 *p_cstring, 
 	}
 
 	if (*(p_cstring+i) != '\0')
-		lossy |= NLS_NAME_OVERLEN;
+		lossy = true;
 	
 	*uniname = (u16)'\0';
 	p_uniname->name_len = unilen;
@@ -439,7 +456,7 @@ static s32 convert_ch_to_uni(struct nls_table *nls, u8 *ch, u16 *uni, s32 *lossy
 		/* conversion failed */
 		DMSG("%s: fail to use nls \n", __func__);
 		if (lossy != NULL)
-			*lossy |= NLS_NAME_LOSSY;
+			*lossy = true;
 		*uni = (u16) '_';
 		if (!strcmp(nls->charset, "utf8")) 
 			return 1;
@@ -465,7 +482,7 @@ static s32 convert_uni_to_ch(struct nls_table *nls, u16 uni, u8 *ch, s32 *lossy)
 		/* conversion failed */
 		DMSG("%s: fail to use nls \n", __func__);
 		if (lossy != NULL)
-			*lossy |= NLS_NAME_LOSSY;
+			*lossy = true;
 		ch[0] = '_';
 		return 1;
 	}

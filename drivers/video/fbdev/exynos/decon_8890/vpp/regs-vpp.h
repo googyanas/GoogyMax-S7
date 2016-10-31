@@ -182,10 +182,6 @@
 #define VG_BASE_ADDR_CB(n)			(0x94 + (n) * 0x4)
 #define VG_BASE_ADDR_CB_EVEN(n)			(0xA4 + (n) * 0x4)
 
-/* shadow SFR of base address */
-#define VG_SHA_BASE_ADDR_Y			0xB74
-#define VG_SHA_BASE_ADDR_CB			0xB94
-
 /* IDMA_VG(R)x scaling filter */
 #define VG_H_COEF(n, s, x)	(0x290 + (n) * 0x4 + (s) * 0x24 + (x) * 0x200)
 #define VG_V_COEF(n, s, x)	(0x200 + (n) * 0x4 + (s) * 0x24 + (x) * 0x200)
@@ -234,10 +230,4 @@
 
 /* IDMA_VG(R)x Dynamic clock gating */
 #define VG_DYNAMIC_GATING_ENABLE		(0xA54)
-
-/* VPP_DEBUG_SFR */
-#define VPP_DBG_ENABLE_SFR				(0xC04)
-#define VPP_DBG_WRITE_SFR				(0xC00)
-#define VPP_DBG_READ_SFR				(0xC10)
-
 #endif

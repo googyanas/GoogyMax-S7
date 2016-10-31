@@ -358,39 +358,35 @@ int sec_battery_update_data(const char* file_path)
 		case BATTERY_DATA_FLAG_ADD:
 			if (IS_ERR_OR_NULL(batt_property)) {
 				temp_buf = sec_battery_check_value(fp, &batt_info, &batt_data);
-				CHECK_ERROR_DATA((!temp_buf && batt_data.length != 0), ret, (-ENOMEM),
-					{kfree(batt_prop); goto finish_update_data;});
+				CHECK_ERROR_DATA((!temp_buf && batt_data.length != 0), ret, (-ENOMEM), goto finish_update_data);
 
 				batt_property = kzalloc(sizeof(struct property), GFP_KERNEL);
 				CHECK_ERROR_DATA((!batt_property), ret, (-ENOMEM),
-					{kfree(batt_prop); kfree(temp_buf); goto finish_update_data;});
+					{kfree(temp_buf); goto finish_update_data;});
 
 				batt_property->name = kzalloc(PROPERTY_SIZE, GFP_KERNEL);
 				CHECK_ERROR_DATA((!batt_property->name), ret, (-ENOMEM),
-					{kfree(batt_prop); kfree(temp_buf); kfree(batt_property); goto finish_update_data;});
+					{kfree(temp_buf); kfree(batt_property); goto finish_update_data;});
 
 				memcpy(batt_property->name, batt_data.property, PROPERTY_SIZE);
 				ret = of_add_property(temp_node->np, batt_property);
 				CHECK_ERROR_DATA((ret), ret, ret,
-					{kfree(batt_prop); kfree(temp_buf); kfree(batt_property->name); kfree(batt_property); goto finish_update_data;});
+					{kfree(temp_buf); kfree(batt_property->name); kfree(batt_property); goto finish_update_data;});
 			} else {
 				pr_info("%s: invalid data(name=%s, property=%s, flag=%d)\n",
 					__func__, batt_data.node_name, batt_data.property, batt_data.flag);
 				ret = -EINVAL;
-				kfree(batt_prop);
 				goto finish_update_data;
 			}
 			break;
 		case BATTERY_DATA_FLAG_EDIT:
 			if (!IS_ERR_OR_NULL(batt_property)) {
 				temp_buf = sec_battery_check_value(fp, &batt_info, &batt_data);
-				CHECK_ERROR_DATA((!temp_buf), ret, (-ENOMEM),
-					{kfree(batt_prop); goto finish_update_data;});
+				CHECK_ERROR_DATA((!temp_buf), ret, (-ENOMEM), goto finish_update_data);
 			} else {
 				pr_info("%s: invalid data(name=%s, property=%s, flag=%d)\n",
 					__func__, batt_data.node_name, batt_data.property, batt_data.flag);
 				ret = -EINVAL;
-				kfree(batt_prop);
 				goto finish_update_data;
 			}
 			break;
@@ -399,19 +395,17 @@ int sec_battery_update_data(const char* file_path)
 				temp_buf = NULL;
 
 				ret = of_remove_property(temp_node->np, batt_property);
-				CHECK_ERROR_DATA((ret), ret, ret, {kfree(batt_prop); goto finish_update_data;});
+				CHECK_ERROR_DATA((ret), ret, ret, goto finish_update_data);
 			} else {
 				pr_info("%s: invalid data(name=%s, property=%s, flag=%d)\n",
 					__func__, batt_data.node_name, batt_data.property, batt_data.flag);
 				ret = -EINVAL;
-				kfree(batt_prop);
 				goto finish_update_data;
 			}
 			break;
 		default:
 			pr_info("%s: invalid flag(%d)\n", __func__, batt_data.flag);
 			ret = -EINVAL;
-			kfree(batt_prop);
 			goto finish_update_data;
 		}
 

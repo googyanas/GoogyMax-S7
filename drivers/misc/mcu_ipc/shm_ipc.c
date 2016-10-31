@@ -167,7 +167,7 @@ static int shm_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 
-		ret = of_property_read_u32(dev->of_node, "shmem,ipc_size",
+		of_property_read_u32(dev->of_node, "shmem,ipc_size",
 				&pdata.ipc_size);
 		if (ret) {
 			dev_err(dev, "failed to get property, ipc_size\n");

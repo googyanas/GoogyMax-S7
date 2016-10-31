@@ -71,7 +71,6 @@ void kernel_restart_prepare(char *cmd)
 	system_state = SYSTEM_RESTART;
 
 	/* user process freeze before device shutdown */
-	events_check_enabled = false;
 	freeze_processes();
 	usermodehelper_disable();
 	device_shutdown();
@@ -236,7 +235,6 @@ static void kernel_shutdown_prepare(enum system_states state)
 	system_state = state;
 
 	/* user process freeze before device shutdown */
-	events_check_enabled = false;
 	freeze_processes();
 	usermodehelper_disable();
 	device_shutdown();

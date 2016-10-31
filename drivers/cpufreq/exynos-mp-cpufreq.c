@@ -34,14 +34,11 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/apm-exynos.h>
-#ifdef CONFIG_MUIC_SUPPORT_CCIC
-#include <linux/of_gpio.h>
-#endif
 
 #include <asm/smp_plat.h>
 #include <asm/cputype.h>
 
-#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER)
 #include <linux/muic/muic.h>
 #include <linux/muic/muic_notifier.h>
 #endif
@@ -94,10 +91,6 @@ static bool cluster1_hotplugged = false;
 static int self_discharging;
 #endif
 
-#ifdef CONFIG_MUIC_SUPPORT_CCIC
-int jig_on;
-#endif
-
 /* Include CPU mask of each cluster */
 cluster_type exynos_boot_cluster;
 static cluster_type boot_cluster;
@@ -116,7 +109,7 @@ static struct pm_qos_request core_max_qos_real[CL_END];
 static struct pm_qos_request exynos_mif_qos[CL_END];
 static struct pm_qos_request ipa_max_qos[CL_END];
 static struct pm_qos_request reboot_max_qos[CL_END];
-#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+#ifdef CONFIG_SEC_PM
 static struct pm_qos_request jig_boot_max_qos[CL_END];
 #endif
 
@@ -239,6 +232,32 @@ static void exynos_cpufreq_verify_possible_freq(int *new_index)
 	/* change index and new_freq to possible value */
 	*new_index = exynos_info[CL_ONE]->max_support_idx_table[NR_CLUST1_CPUS - off_cnt];
 	freqs[CL_ONE]->new = exynos_info[CL_ONE]->freq_table[*new_index].frequency;
+}
+
+int exynos_cpufreq_verify_possible_hotplug(unsigned int hcpu)
+{
+	unsigned int possible_freq;
+	struct cpumask mask;
+
+	if (cpumask_test_cpu(hcpu, &hmp_slow_cpu_mask))
+		return 0;
+
+	if (!exynos_cpufreq_init_done)
+		return 0;
+
+	cpumask_and(&mask, cpu_online_mask, &hmp_fast_cpu_mask);
+	cpumask_or(&mask, cpumask_of(hcpu), &mask);
+	possible_freq = exynos_cpufreq_get_possible_max_freq(cpumask_weight(&mask));
+
+	if (freqs[CL_ONE]->old <= possible_freq)
+		return 0;
+
+	pr_err("Can't boot cpu (number of online core: %d -> %d, cur_freq: %d\n",
+		cpumask_weight(&mask), cpumask_weight(&mask) - 1, freqs[CL_ONE]->old);
+
+	BUG();
+
+	return -EINVAL;
 }
 #endif
 
@@ -518,7 +537,6 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 	unsigned int new_index, old_index;
 	unsigned int volt, safe_volt = 0;
 	int ret = 0;
-	unsigned int current_freq = freqs[cur]->old;
 
 	if (!policy)
 		return -EINVAL;
@@ -651,10 +669,6 @@ static int exynos_cpufreq_scale(unsigned int target_freq, unsigned int cpu)
 
 fail_dvfs:
 	cpufreq_freq_transition_end(policy, freqs[cur], ret);
-
-	/* Recover old freq when voltage set failed */
-	freqs[cur]->old = current_freq;
-
 put_policy:
 	cpufreq_cpu_put(policy);
 
@@ -1991,12 +2005,19 @@ static struct notifier_block exynos_cpufreq_policy_nb = {
 	.notifier_call = cpufreq_policy_notifier,
 };
 
+static int is_cpufreq_valid(int cpu)
+{
+	struct cpufreq_policy policy;
+
+	return (!cpufreq_get_policy(&policy, cpu) && policy.user_policy.governor);
+}
+
 static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 				    unsigned long event, void *data)
 {
+	struct cpumask *cl1_mask = &cluster_cpus[CL_ONE];
+	unsigned int cpuid;
 	struct cpumask mask;
-	struct cpumask policy_update_mask;
-	unsigned long timeout;
 
 	switch (event) {
 	case CPUS_DOWN_COMPLETE:
@@ -2005,35 +2026,22 @@ static int exynos_cpufreq_cpus_notifier(struct notifier_block *nb,
 		cpumask_and(&mask, &mask, &hmp_fast_cpu_mask);
 		big_cpu_cnt = cpumask_weight(&mask);
 
-		/*
-		 * if policy_update_mask is 0, it means first hotplug in or last hotplug out
-		 * of fast_cpu domain
-		 */
-		cpumask_clear(&policy_update_mask);
-		cpumask_and(&policy_update_mask, &hmp_fast_cpu_mask, cpu_online_mask);
-		if (!cpumask_weight(&policy_update_mask))
-			return NOTIFY_OK;
-
-		/* if cpufreq_update_policy is failed after 50ms, cancel cpu_up */
-		timeout = jiffies + msecs_to_jiffies(50);
-		while(cpufreq_update_policy(cpumask_first(&policy_update_mask))
-							&& event == CPUS_UP_PREPARE) {
-			if (time_after(jiffies, timeout))
-				return NOTIFY_BAD;
+		for_each_cpu(cpuid, cl1_mask) {
+			if (is_cpufreq_valid(cpuid))
+				cpufreq_update_policy(cpuid);
 		}
 	}
 
 	if (event == CPUS_UP_PREPARE) {
 		mutex_lock(&cpufreq_lock);
+		mutex_unlock(&cpufreq_lock);
 
 		if (unlikely(freqs[CL_ONE]->old > exynos_cpufreq_get_possible_max_freq(big_cpu_cnt))) {
 			pr_err("frequency(%d) is higher than possible max frequency of big cpu cnt: %d\n",
 			freqs[CL_ONE]->old, big_cpu_cnt);
-			mutex_unlock(&cpufreq_lock);
 
 			return NOTIFY_BAD;
 		}
-		mutex_unlock(&cpufreq_lock);
 	}
 
 	return NOTIFY_OK;
@@ -2467,7 +2475,7 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 			return -ENODEV;
 		if (of_property_read_u32(np, "cl1_reboot_limit_freq", &ptr->reboot_limit_freq))
 			return -ENODEV;
-#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+#ifdef CONFIG_SEC_PM
 		if (of_property_read_u32(np, "cl1_jig_boot_max_qos", &ptr->jig_boot_cpu_max_qos))
 			return -ENODEV;
 #endif
@@ -2490,16 +2498,6 @@ static int exynos_mp_cpufreq_parse_dt(struct device_node *np, cluster_type cl)
 	if (of_property_read_string(np, (cl ? "cl1_dvfs_domain_name" : "cl0_dvfs_domain_name"),
 				&cluster_domain_name))
 		return -ENODEV;
-
-#ifdef CONFIG_MUIC_SUPPORT_CCIC
-	jig_on = of_get_named_gpio(np, "cpufreq,jig_on", 0);
-	if (jig_on < 0) {
-		pr_err("%s error reading jig_on = %d\n", __func__,jig_on);
-		jig_on = 0;
-	} else {
-		pr_info("%s use JIG ON gpio for detecting Jig cable(HWrev04 or later)\n", __func__);
-	}
-#endif
 
 #if defined(CONFIG_ECT)
 	not_using_ect = exynos_mp_cpufreq_parse_frequency((char *)cluster_domain_name, ptr);
@@ -2745,7 +2743,7 @@ device_initcall(exynos_mp_cpufreq_init);
 late_initcall(exynos_mp_cpufreq_init);
 #endif
 
-#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER) && !defined(CONFIG_MUIC_SUPPORT_CCIC)
+#if defined(CONFIG_SEC_PM) && defined(CONFIG_MUIC_NOTIFIER)
 static struct notifier_block cpufreq_muic_nb;
 static bool jig_is_attached;
 
@@ -2781,17 +2779,12 @@ static int __init exynos_cpufreq_late_init(void)
 #ifdef CONFIG_SEC_FACTORY
 	timeout = 100 * USEC_PER_SEC;
 #endif
-
-#ifdef CONFIG_MUIC_SUPPORT_CCIC
-	if(!jig_on || !gpio_get_value(jig_on))
-		return 0;
-#else
 	muic_notifier_register(&cpufreq_muic_nb,
 			exynos_cpufreq_muic_notifier, MUIC_NOTIFY_DEV_CPUFREQ);
 
 	if (!jig_is_attached)
 		return 0;
-#endif
+
 	pr_info("%s: JIG is attached: boot cpu qos %lu sec\n", __func__,
 			timeout / USEC_PER_SEC);
 
@@ -2812,7 +2805,7 @@ static int __init exynos_cpufreq_late_init(void)
 }
 
 late_initcall(exynos_cpufreq_late_init);
-#endif /* CONFIG_SEC_PM && CONFIG_MUIC_NOTIFIER && CONFIG_MUIC_SUPPORT_CCIC is not defined */
+#endif /* CONFIG_SEC_PM && CONFIG_MUIC_NOTIFIER */
 
 static void __exit exynos_mp_cpufreq_exit(void)
 {

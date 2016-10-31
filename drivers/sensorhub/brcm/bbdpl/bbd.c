@@ -133,9 +133,7 @@ static struct bbd_device bbd;
  */
 static unsigned char bbd_patch[] =
 {
-#if defined (CONFIG_SENSORS_SSP_GRACE)
-#include "bbd_patch_file_grace.h"	
-#elif defined (CONFIG_SENSORS_SSP_LUCKY)
+#if defined (CONFIG_SENSORS_SSP_LUCKY)
 #include "bbd_patch_file_lucky.h"
 #endif
 };
@@ -633,9 +631,7 @@ static ssize_t bbd_common_write(struct file *filp, const char __user *buf, size_
 	unsigned int minor = iminor(filp->f_path.dentry->d_inode);
 	//struct bbd_device *bbd = filp->private_data;
 
-	//BUG_ON(size >= BBD_BUFF_SIZE);
-	 if (size >= BBD_BUFF_SIZE)
-	 	return -EINVAL;
+	BUG_ON(size >= BBD_BUFF_SIZE);
 		
 	WARN_ON(copy_from_user(bbd.priv[minor].write_buf, buf, size));
 

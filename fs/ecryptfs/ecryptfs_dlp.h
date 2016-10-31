@@ -26,13 +26,8 @@
 
 #define DLP_DEBUG 1
 
-struct knox_expiry {
-	int64_t tv_sec;
-	int64_t tv_nsec;
-};
-
 struct knox_dlp_data {
-	struct knox_expiry expiry_time;
+	struct timespec expiry_time;
 };
 
 #endif /* ECRYPTFS_DLP_H */

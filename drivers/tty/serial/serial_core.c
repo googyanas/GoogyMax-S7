@@ -41,9 +41,6 @@
 #if defined(CONFIG_BT_BCM4339) || defined(CONFIG_BT_BCM4354) || defined(CONFIG_BT_BCM4358) || defined(CONFIG_BT_BCM4359) /* This is just temporary features*/
 #define BT4339_LINE 1
 #endif
-#if defined(CONFIG_BCM4359)
-#define WIFI_UART_PORT_LINE 3
-#endif
 /*
  * This is used to lock changes in serial line configuration.
  */
@@ -194,13 +191,8 @@ static int uart_port_startup(struct tty_struct *tty, struct uart_state *state,
 		    !(uport->ops->get_mctrl(uport) & TIOCM_CTS)) {
 
 #if defined(CONFIG_BT_BCM4339) || defined(CONFIG_BT_BCM4354) || defined(CONFIG_BT_BCM4358) || defined(CONFIG_BT_BCM4359)
-#if defined(CONFIG_BCM4359)
-			if ((uport->line != BT4339_LINE) && (uport->line != WIFI_UART_PORT_LINE))
-				uport->hw_stopped = 1;
-#else
 			if (uport->line != BT4339_LINE)
 				uport->hw_stopped = 1;
-#endif
 #endif
 		}
 		else
@@ -1332,11 +1324,7 @@ static void uart_set_termios(struct tty_struct *tty,
 		spin_lock_irq(&uport->lock);
 		if (!(uport->ops->get_mctrl(uport) & TIOCM_CTS)) {
 #if defined(CONFIG_BT_BCM4339) || defined(CONFIG_BT_BCM4354) || defined(CONFIG_BT_BCM4358) || defined(CONFIG_BT_BCM4359)
-#if defined(CONFIG_BCM4359)
-			if ((uport->line != BT4339_LINE) && (uport->line != WIFI_UART_PORT_LINE))
-#else
 			if (uport->line != BT4339_LINE)
-#endif
 #endif
 				uport->hw_stopped = 1;
 			uport->ops->stop_tx(uport);

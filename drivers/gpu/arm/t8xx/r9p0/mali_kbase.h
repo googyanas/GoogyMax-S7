@@ -64,8 +64,6 @@
 #include <trace/events/gpu.h>
 #endif
 
-#define MALI_WAIT_FENCE_TIME	(3000)  /* ms */
-
 /*{ SRUK-MALI_SYSTRACE_SUPPORT*/
 #ifdef CONFIG_MALI_SYSTRACE_SUPPORT
 /**
@@ -216,7 +214,6 @@ void kbase_event_close(struct kbase_context *kctx);
 void kbase_event_cleanup(struct kbase_context *kctx);
 void kbase_event_wakeup(struct kbase_context *kctx);
 
-void kbase_debug_fence_wait_job(struct kbase_context *kctx);
 int kbase_process_soft_job(struct kbase_jd_atom *katom);
 int kbase_prepare_soft_job(struct kbase_jd_atom *katom);
 void kbase_finish_soft_job(struct kbase_jd_atom *katom);

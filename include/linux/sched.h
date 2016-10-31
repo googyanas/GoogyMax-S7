@@ -3112,7 +3112,4 @@ extern int hp_sysload_to_dual_ratio;
 extern int hp_sysload_param_calc(void);
 extern int hp_little_multiplier_ratio;
 #endif
-
-extern void save_pcpu_tick(int cpu);
-extern void restore_pcpu_tick(int cpu);
 #endif

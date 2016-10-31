@@ -99,4 +99,3 @@ x509.genkey
 # Kconfig presets
 all.config
 /arch/arm64/boot/Image.gz-dtb
-/scripts//rkp_cfp/tmp/*.*

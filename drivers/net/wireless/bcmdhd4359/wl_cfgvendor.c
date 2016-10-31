@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: wl_cfgvendor.c 651466 2016-07-27 05:11:50Z $
+ * $Id: wl_cfgvendor.c 612549 2016-01-14 07:39:32Z $
  */
 
 /*
@@ -1089,224 +1089,6 @@ exit:
 
 #endif /* RTT_SUPPORT */
 
-#if defined(KEEP_ALIVE)
-static int wl_cfgvendor_start_mkeep_alive(struct wiphy *wiphy, struct wireless_dev *wdev,
-	const void *data, int len)
-{
-	/* max size of IP packet for keep alive */
-	const int MKEEP_ALIVE_IP_PKT_MAX = 256;
-
-	int ret = BCME_OK, rem, type;
-	u8 mkeep_alive_id = 0;
-	u8 *ip_pkt = NULL;
-	u16 ip_pkt_len = 0;
-	u8 src_mac[ETHER_ADDR_LEN];
-	u8 dst_mac[ETHER_ADDR_LEN];
-	u32 period_msec = 0;
-	const struct nlattr *iter;
-	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
-	dhd_pub_t *dhd_pub = cfg->pub;
-	gfp_t kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
-	nla_for_each_attr(iter, data, len, rem) {
-		type = nla_type(iter);
-		switch (type) {
-			case MKEEP_ALIVE_ATTRIBUTE_ID:
-				mkeep_alive_id = nla_get_u8(iter);
-				break;
-			case MKEEP_ALIVE_ATTRIBUTE_IP_PKT_LEN:
-				ip_pkt_len = nla_get_u16(iter);
-				if (ip_pkt_len > MKEEP_ALIVE_IP_PKT_MAX) {
-					ret = BCME_BADARG;
-					goto exit;
-				}
-				break;
-			case MKEEP_ALIVE_ATTRIBUTE_IP_PKT:
-				if (!ip_pkt_len) {
-					ret = BCME_BADARG;
-					WL_ERR(("ip packet length is 0\n"));
-					goto exit;
-				}
-				ip_pkt = (u8 *)kzalloc(ip_pkt_len, kflags);
-				if (ip_pkt == NULL) {
-					ret = BCME_NOMEM;
-					WL_ERR(("Failed to allocate mem for ip packet\n"));
-					goto exit;
-				}
-				memcpy(ip_pkt, (u8*)nla_data(iter), ip_pkt_len);
-				break;
-			case MKEEP_ALIVE_ATTRIBUTE_SRC_MAC_ADDR:
-				memcpy(src_mac, nla_data(iter), ETHER_ADDR_LEN);
-				break;
-			case MKEEP_ALIVE_ATTRIBUTE_DST_MAC_ADDR:
-				memcpy(dst_mac, nla_data(iter), ETHER_ADDR_LEN);
-				break;
-			case MKEEP_ALIVE_ATTRIBUTE_PERIOD_MSEC:
-				period_msec = nla_get_u32(iter);
-				break;
-			default:
-				WL_ERR(("Unknown type: %d\n", type));
-				ret = BCME_BADARG;
-				goto exit;
-		}
-	}
-
-	if (ip_pkt == NULL) {
-		ret = BCME_BADARG;
-		WL_ERR(("ip packet is NULL\n"));
-		goto exit;
-	}
-
-	ret = dhd_dev_start_mkeep_alive(dhd_pub, mkeep_alive_id, ip_pkt, ip_pkt_len, src_mac,
-		dst_mac, period_msec);
-	if (ret < 0) {
-		WL_ERR(("start_mkeep_alive is failed ret: %d\n", ret));
-	}
-
-exit:
-	if (ip_pkt) {
-		kfree(ip_pkt);
-	}
-
-	return ret;
-}
-
-static int wl_cfgvendor_stop_mkeep_alive(struct wiphy *wiphy, struct wireless_dev *wdev,
-	const void *data, int len)
-{
-	int ret = BCME_OK, rem, type;
-	u8 mkeep_alive_id = 0;
-	const struct nlattr *iter;
-	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
-	dhd_pub_t *dhd_pub = cfg->pub;
-
-	nla_for_each_attr(iter, data, len, rem) {
-		type = nla_type(iter);
-		switch (type) {
-			case MKEEP_ALIVE_ATTRIBUTE_ID:
-				mkeep_alive_id = nla_get_u8(iter);
-				break;
-			default:
-				WL_ERR(("Unknown type: %d\n", type));
-				ret = BCME_BADARG;
-				break;
-		}
-	}
-
-	ret = dhd_dev_stop_mkeep_alive(dhd_pub, mkeep_alive_id);
-	if (ret < 0) {
-		WL_ERR(("stop_mkeep_alive is failed ret: %d\n", ret));
-	}
-
-	return ret;
-}
-#endif /* defined(KEEP_ALIVE) */
-
-#if defined(PKT_FILTER_SUPPORT) && defined(APF)
-static int
-wl_cfgvendor_apf_get_capabilities(struct wiphy *wiphy,
-	struct wireless_dev *wdev, const void *data, int len)
-{
-	struct net_device *ndev = wdev_to_ndev(wdev);
-	struct sk_buff *skb;
-	int ret, ver, max_len, mem_needed;
-
-	/* APF version */
-	ver = 0;
-	ret = dhd_dev_apf_get_version(ndev, &ver);
-	if (unlikely(ret)) {
-		WL_ERR(("APF get version failed, ret=%d\n", ret));
-		return ret;
-	}
-
-	/* APF memory size limit */
-	max_len = 0;
-	ret = dhd_dev_apf_get_max_len(ndev, &max_len);
-	if (unlikely(ret)) {
-		WL_ERR(("APF get maximum length failed, ret=%d\n", ret));
-		return ret;
-	}
-
-	mem_needed = VENDOR_REPLY_OVERHEAD + (ATTRIBUTE_U32_LEN * 2);
-
-	skb = cfg80211_vendor_cmd_alloc_reply_skb(wiphy, mem_needed);
-	if (unlikely(!skb)) {
-		WL_ERR(("%s: can't allocate %d bytes\n", __FUNCTION__, mem_needed));
-		return -ENOMEM;
-	}
-
-	nla_put_u32(skb, APF_ATTRIBUTE_VERSION, ver);
-	nla_put_u32(skb, APF_ATTRIBUTE_MAX_LEN, max_len);
-
-	ret = cfg80211_vendor_cmd_reply(skb);
-	if (unlikely(ret)) {
-		WL_ERR(("vendor command reply failed, ret=%d\n", ret));
-	}
-
-	return ret;
-}
-
-static int
-wl_cfgvendor_apf_set_filter(struct wiphy *wiphy,
-	struct wireless_dev *wdev, const void  *data, int len)
-{
-	struct net_device *ndev = wdev_to_ndev(wdev);
-	const struct nlattr *iter;
-	u8 *program = NULL;
-	u32 program_len = 0;
-	int ret, tmp, type;
-	gfp_t kflags;
-
-	/* assumption: length attribute must come first */
-	nla_for_each_attr(iter, data, len, tmp) {
-		type = nla_type(iter);
-		switch (type) {
-			case APF_ATTRIBUTE_PROGRAM_LEN:
-				program_len = nla_get_u32(iter);
-				if (unlikely(!program_len)) {
-					WL_ERR(("zero program length\n"));
-					ret = -EINVAL;
-					goto exit;
-				}
-				break;
-			case APF_ATTRIBUTE_PROGRAM:
-				if (unlikely(!program_len)) {
-					WL_ERR(("program len is not set\n"));
-					ret = -EINVAL;
-					goto exit;
-				}
-				kflags = in_atomic() ? GFP_ATOMIC : GFP_KERNEL;
-				program = kzalloc(program_len, kflags);
-				if (unlikely(!program)) {
-					WL_ERR(("%s: can't allocate %d bytes\n",
-						__FUNCTION__, program_len));
-					ret = -ENOMEM;
-					goto exit;
-				}
-				memcpy(program, (u8*)nla_data(iter), program_len);
-				break;
-			default:
-				WL_ERR(("%s: no such attribute %d\n", __FUNCTION__, type));
-				ret = -EINVAL;
-				goto exit;
-		}
-	}
-
-	if (!program || !program_len) {
-		WL_ERR(("program alloc, program len %d set fail\n", program_len));
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	ret = dhd_dev_apf_add_filter(ndev, program, program_len);
-
-exit:
-	if (program) {
-		kfree(program);
-	}
-	return ret;
-}
-#endif /* PKT_FILTER_SUPPORT && APF */
-
 static int
 wl_cfgvendor_priv_string_handler(struct wiphy *wiphy,
 	struct wireless_dev *wdev, const void  *data, int len)
@@ -1428,15 +1210,10 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	wl_cnt_wlc_t *wlc_cnt;
 	scb_val_t scbval;
 	char *output;
-	wifi_rate_stat *p_wifi_rate_stat = NULL;
-	wifi_rate_stat_v2 *p_wifi_rate_stat_v2 = NULL;
-	uint total_len = 0;
-
 
 	WL_INFORM(("%s: Enter \n", __func__));
 	RETURN_EIO_IF_NOT_UP(cfg);
 
-	bzero(&scbval, sizeof(scb_val_t));
 	bzero(cfg->ioctl_buf, WLC_IOCTL_MAXLEN);
 	bzero(iovar_buf, WLC_IOCTL_MAXLEN);
 
@@ -1452,7 +1229,7 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	radio->num_channels = NUM_CHAN;
 	memcpy(output, iovar_buf+HEADER_SIZE, sizeof(wifi_radio_stat)-HEADER_SIZE);
 
-	output += (sizeof(wifi_radio_stat) - HEADER_SIZE) - sizeof(wifi_channel_stat);
+	output += (sizeof(wifi_radio_stat) - HEADER_SIZE);
 	output += (NUM_CHAN*sizeof(wifi_channel_stat));
 
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "wme_counters", NULL, 0,
@@ -1534,54 +1311,24 @@ static int wl_cfgvendor_lstats_get_info(struct wiphy *wiphy,
 	iface->peer_info->num_rate = NUM_RATE;
 
 	bzero(iovar_buf, WLC_IOCTL_MAXLEN);
-
-	output = (char *) &(iface->peer_info->num_rate);
-	output += sizeof(iface->peer_info->num_rate);
+	output = (char *)iface + sizeof(wifi_iface_stat) + NUM_PEER*sizeof(wifi_peer_info);
 
 	err = wldev_iovar_getbuf(bcmcfg_to_prmry_ndev(cfg), "ratestat", NULL, 0,
 		iovar_buf, WLC_IOCTL_MAXLEN, NULL);
 	if (err != BCME_OK && err != BCME_UNSUPPORTED) {
-		WL_ERR(("error (%d) - size = %zu\n", err, NUM_RATE*sizeof(wifi_rate_stat_v2)));
+		WL_ERR(("error (%d) - size = %zu\n", err, NUM_RATE*sizeof(wifi_rate_stat)));
 		return err;
 	}
-	for (i = 0; i < NUM_RATE; i++) {
-
-		p_wifi_rate_stat_v2 =
-			(wifi_rate_stat_v2 *)(iovar_buf + i*sizeof(wifi_rate_stat_v2));
-
-		/* transform wifi_rate_stat_v2 to wifi_rate_stat */
-		p_wifi_rate_stat = (wifi_rate_stat *)output;
-		p_wifi_rate_stat->rate.preamble = p_wifi_rate_stat_v2->rate.preamble;
-		p_wifi_rate_stat->rate.nss = p_wifi_rate_stat_v2->rate.nss;
-		p_wifi_rate_stat->rate.bw = p_wifi_rate_stat_v2->rate.bw;
-		p_wifi_rate_stat->rate.rateMcsIdx = p_wifi_rate_stat_v2->rate.rateMcsIdx;
-		p_wifi_rate_stat->rate.reserved = p_wifi_rate_stat_v2->rate.reserved;
-		p_wifi_rate_stat->rate.bitrate = p_wifi_rate_stat_v2->rate.bitrate;
-		p_wifi_rate_stat->tx_mpdu = p_wifi_rate_stat_v2->tx_mpdu;
-		p_wifi_rate_stat->rx_mpdu = p_wifi_rate_stat_v2->rx_mpdu;
-		p_wifi_rate_stat->mpdu_lost = p_wifi_rate_stat_v2->mpdu_lost;
-		p_wifi_rate_stat->retries = p_wifi_rate_stat_v2->retries;
-		p_wifi_rate_stat->retries_short = p_wifi_rate_stat_v2->retries_short;
-		p_wifi_rate_stat->retries_long = p_wifi_rate_stat_v2->retries_long;
-
-		output = (char *) &(p_wifi_rate_stat->retries_long);
-		output += sizeof(p_wifi_rate_stat->retries_long);
-	}
-	total_len = sizeof(wifi_radio_stat)-HEADER_SIZE-sizeof(wifi_channel_stat) +
-		NUM_CHAN*sizeof(wifi_channel_stat) +
-		sizeof(wifi_iface_stat)-sizeof(wifi_peer_info) +
-		NUM_PEER*(sizeof(wifi_peer_info)-sizeof(wifi_rate_stat) +
-		NUM_RATE*sizeof(wifi_rate_stat));
-
-	if (total_len > WLC_IOCTL_MAXLEN) {
-		WL_ERR(("Error! total_len:%d is unexpected value\n", total_len));
-		return BCME_BADLEN;
-	}
+	for (i = 0; i < NUM_RATE; i++)
+		memcpy(output, iovar_buf+HEADER_SIZE+i*sizeof(wifi_rate_stat),
+		sizeof(wifi_rate_stat)-HEADER_SIZE);
 
 	err =  wl_cfgvendor_send_cmd_reply(wiphy, bcmcfg_to_prmry_ndev(cfg),
 		cfg->ioctl_buf,
-		total_len);
-
+		sizeof(wifi_radio_stat)-HEADER_SIZE +
+		NUM_CHAN*sizeof(wifi_channel_stat) +
+		sizeof(wifi_iface_stat)+NUM_PEER*sizeof(wifi_peer_info) +
+		NUM_RATE*(sizeof(wifi_rate_stat)-HEADER_SIZE));
 	if (unlikely(err))
 		WL_ERR(("Vendor Command reply failed ret:%d \n", err));
 
@@ -1706,24 +1453,6 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		.doit = wl_cfgvendor_rtt_get_capability
 	},
 #endif /* RTT_SUPPORT */
-#ifdef KEEP_ALIVE
-	{
-		{
-			.vendor_id = OUI_GOOGLE,
-			.subcmd = WIFI_OFFLOAD_SUBCMD_START_MKEEP_ALIVE
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.doit = wl_cfgvendor_start_mkeep_alive
-	},
-	{
-		{
-			.vendor_id = OUI_GOOGLE,
-			.subcmd = WIFI_OFFLOAD_SUBCMD_STOP_MKEEP_ALIVE
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.doit = wl_cfgvendor_stop_mkeep_alive
-	},
-#endif /* KEEP_ALIVE */
 	{
 		{
 			.vendor_id = OUI_GOOGLE,
@@ -1769,24 +1498,6 @@ static const struct wiphy_vendor_command wl_vendor_cmds [] = {
 		.doit = wl_cfgvendor_lstats_get_info
 	},
 #endif /* LINKSTAT_SUPPORT */
-#if defined(PKT_FILTER_SUPPORT) && defined(APF)
-	{
-		{
-			.vendor_id = OUI_GOOGLE,
-			.subcmd = APF_SUBCMD_GET_CAPABILITIES
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.doit = wl_cfgvendor_apf_get_capabilities
-	},
-	{
-		{
-			.vendor_id = OUI_GOOGLE,
-			.subcmd = APF_SUBCMD_SET_FILTER
-		},
-		.flags = WIPHY_VENDOR_CMD_NEED_WDEV | WIPHY_VENDOR_CMD_NEED_NETDEV,
-		.doit = wl_cfgvendor_apf_set_filter
-	},
-#endif /* PKT_FILTER_SUPPORT && APF */
 };
 
 static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {
@@ -1805,10 +1516,6 @@ static const struct  nl80211_vendor_cmd_info wl_vendor_events [] = {
 		{ OUI_GOOGLE, GOOGLE_SCAN_COMPLETE_EVENT },
 		{ OUI_GOOGLE, GOOGLE_GSCAN_GEOFENCE_LOST_EVENT },
 #endif /* GSCAN_SUPPORT */
-		{ OUI_GOOGLE, GOOGLE_RSSI_MONITOR_EVENT },
-#ifdef KEEP_ALIVE
-		{ OUI_GOOGLE, GOOGLE_MKEEP_ALIVE_EVENT },
-#endif
 		{ OUI_BRCM, BRCM_VENDOR_EVENT_IDSUP_STATUS }
 };
 

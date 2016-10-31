@@ -199,11 +199,8 @@ uintptr_t mdnie_request_table(char *path, struct mdnie_table *org)
 		goto exit;
 
 	size = mdnie_request_firmware(path, ret ? org->name : NULL, &buf);
-	if (size <= 0) {
-		if (buf)
-			kfree(buf);
+	if (size <= 0)
 		goto exit;
-	}
 
 	cmd = kzalloc(size * sizeof(mdnie_t), GFP_KERNEL);
 	if (IS_ERR_OR_NULL(cmd))

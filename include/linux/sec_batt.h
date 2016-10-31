@@ -15,7 +15,12 @@
 #ifndef __SEC_BATT_H
 #define __SEC_BATT_H
 
-#include <linux/module.h>
+#if defined(CONFIG_BATTERY_SAMSUNG)
+#include <linux/battery/sec_charging_common.h>
+
+extern sec_battery_platform_data_t sec_battery_pdata;
+#endif
+
 #include <linux/sec_debug.h>
 
 extern unsigned int lpcharge;

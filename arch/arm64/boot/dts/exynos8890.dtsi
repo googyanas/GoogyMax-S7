@@ -1944,7 +1944,7 @@
 				thrd_mb = <1468800>;
 				freq_mfc = <598000>;
 				freq_int = <690000>;
-				freq_mif = <1144000>;
+				freq_mif = <845000>;
 				freq_cpu = <0>;
 				freq_kfc = <0>;
 				has_enc_table = <1>;
@@ -3212,7 +3212,7 @@
 			/* Frequency table */
 			/* for level	:	1_Head 2_Tail*/
 			input_booster,cpu_freqs = <1040000 0>;
-			input_booster,hmp_boost = <1 1>;
+			input_booster,hmp_boost = <1 0>;
 			input_booster,kfc_freqs = <754000 1274000>;
 			input_booster,mif_freqs = <0 0>;
 			input_booster,int_freqs = <0 0>;

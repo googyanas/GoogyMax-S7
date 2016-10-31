@@ -31,24 +31,34 @@ _start_hyperdrive:
 nop
 
 
+/*
+ * Snippets of code in the springboard must be labled with the prefix: jopp_springboard_
+ * This naming convention ensures that springboards themselves aren't instrumented.
+ */
 
 #ifdef CONFIG_RKP_CFP_JOPP
+	.macro zero_reg, reg, blr_reg
+	.if \reg == \blr_reg
+	//DON'T zero the BLR target register, we need to jump to it
+	nop
+	.else
+	mov \reg, #0
+	.endif
+	.endm
 
 /* Load the word just before the function instructions.
  * Halt execution if the word doesn't match the magic number placed at function 
  * entries.
  */
-	.macro	springboard_blr, reg 
+	.macro springboard_blr, reg 
+	alloc_function_entry_magic_number func_entry_magic_\reg
 	jopp_springboard_blr_\reg:
-	push	RRX, RRS
-	ldr 	RRX_32, [\reg, #-4]
-	subs	RRX_32, RRX_32, #0xbe7, lsl #12
-	cmp	RRX_32, #0xbad
-	b.eq 	1f
-	.inst	0x00be7bad //crash for sure
+	ldr RRX_32, [\reg, #-4]
+	cmp RRX_32, RRS_32
+	b.eq 1f
+	hlt #0
 1:
-	pop	RRX, RRS
-	br 	\reg
+	br \reg
 	.endm
 
 	// Only add springboards for a register rX if there exists a "BLR rX" instruction in vmlinux to instrument
@@ -68,15 +78,13 @@ nop
 	springboard_blr	x13
 	springboard_blr	x14
 	springboard_blr	x15
-	/* x16, x17 are reserved.
-	 * Undefine ROPP will free x16 and x17
-	 * JOPP only needs no registers
+	/* x16, x17, x18 are reserved.
+	 * Undefine ROPP will free x16, x17
 	 */
 #ifndef CONFIG_RKP_CFP_ROPP
 	springboard_blr	x16
 	springboard_blr	x17
 #endif
-	springboard_blr	x18
 	springboard_blr	x19
 	springboard_blr	x20
 	springboard_blr	x21

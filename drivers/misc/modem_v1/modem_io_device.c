@@ -1242,12 +1242,6 @@ drop:
 	return NETDEV_TX_OK;
 }
 
-static u16 vnet_select_queue(struct net_device *dev, struct sk_buff *skb,
-		void *accel_priv, select_queue_fallback_t fallback)
-{
-	return (skb && skb->mark == RAW_HPRIO) ? 1 : 0;
-}
-
 static int dummy_net_open(struct net_device *ndev)
 {
 	return -EINVAL;
@@ -1261,7 +1255,6 @@ static struct net_device_ops vnet_ops = {
 	.ndo_open = vnet_open,
 	.ndo_stop = vnet_stop,
 	.ndo_start_xmit = vnet_xmit,
-	.ndo_select_queue = vnet_select_queue,
 };
 
 static void vnet_setup(struct net_device *ndev)
@@ -1411,11 +1404,11 @@ int sipc5_init_io_device(struct io_device *iod)
 		INIT_LIST_HEAD(&iod->node_ndev);
 
 		if (iod->use_handover)
-			iod->ndev = alloc_netdev_mqs(0, iod->name, NET_NAME_UNKNOWN,
-				vnet_setup_ether, MAX_NDEV_TX_Q, MAX_NDEV_RX_Q);
+			iod->ndev = alloc_netdev(0, iod->name, NET_NAME_UNKNOWN,
+					vnet_setup_ether);
 		else
-			iod->ndev = alloc_netdev_mqs(0, iod->name, NET_NAME_UNKNOWN,
-				vnet_setup, MAX_NDEV_TX_Q, MAX_NDEV_RX_Q);
+			iod->ndev = alloc_netdev(0, iod->name, NET_NAME_UNKNOWN,
+					vnet_setup);
 
 		if (!iod->ndev) {
 			mif_info("%s: ERR! alloc_netdev fail\n", iod->name);

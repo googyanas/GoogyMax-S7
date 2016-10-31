@@ -975,6 +975,4 @@ source "drivers/input/touchscreen/synaptics_dsx2/Kconfig"
 source "drivers/input/touchscreen/stm/Kconfig"
 source "drivers/input/touchscreen/stm/fts7/Kconfig"
 source "drivers/input/touchscreen/sec_ts/Kconfig"
-source "drivers/input/touchscreen/mxt_t/Kconfig"
-source "drivers/input/touchscreen/melfas/mms100s/Kconfig"
 endif

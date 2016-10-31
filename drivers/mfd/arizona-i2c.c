@@ -81,7 +81,8 @@ static int arizona_i2c_probe(struct i2c_client *i2c,
 		break;
 #endif
 	default:
-		dev_err(&i2c->dev, "Unknown device type %ld\n", type);
+		dev_err(&i2c->dev, "Unknown device type %ld\n",
+			id->driver_data);
 		return -EINVAL;
 	}
 
@@ -109,7 +110,7 @@ static int arizona_i2c_probe(struct i2c_client *i2c,
 		}
 	}
 
-	arizona->type = type;
+	arizona->type = id->driver_data;
 	arizona->dev = &i2c->dev;
 	arizona->irq = i2c->irq;
 

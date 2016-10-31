@@ -275,7 +275,6 @@ static irqreturn_t max77854_muic_irq_handler(muic_data_t *pmuic, int irq)
 
 	case MAX77854_MUIC_IRQ_INT2_DCDTMR:
 		pr_info("%s DCTTMR interrupt occured\n",__func__);
-		pmuic->is_dcdtmr_intr = true;
 		break;
 	default:
 		break;
@@ -292,13 +291,13 @@ static irqreturn_t muic_irq_thread(int irq, void *data)
 
 	if(pmuic->vps_table == VPS_TYPE_TABLE) {
 		if(max77854_muic_irq_handler(pmuic, irq) & INT_REQ_DONE) {
-			muic_detect_dev(pmuic, irq);
+			muic_detect_dev(pmuic);
 			if (muis_is_vbus_int(pmuic, irq))
 				muic_handle_vbus(pmuic);
 		}
 	} else{
 		if (muic_irq_handler(pmuic, irq) & INT_REQ_DONE)
-			muic_detect_dev(pmuic, irq);
+			muic_detect_dev(pmuic);
 	}
 
 	mutex_unlock(&pmuic->muic_mutex);
@@ -329,10 +328,6 @@ static int muic_irq_init(muic_data_t *pmuic)
 
 	if(!strcmp(pmuic->chip_name,"max,max77854")) {
 		int irq_adc1k, irq_adcerr, irq_adc, irq_chgtyp, irq_vbvolt;
-#if defined(CONFIG_MUIC_SUPPORT_CCIC)
-		/* type C needs checking dcd tmr interrupt */
-		int irq_dcdtmr;
-#endif
 
 		irq_adc1k = pdata->irq_gpio + MAX77854_MUIC_IRQ_INT1_ADC1K;
 		printk(" %s requesting irq no = %d\n",__func__,irq_adc1k);
@@ -360,22 +355,12 @@ static int muic_irq_init(muic_data_t *pmuic)
 		ret = request_threaded_irq(irq_vbvolt, NULL,
                         muic_irq_thread, (IRQF_TRIGGER_FALLING | IRQF_ONESHOT),
                         "muic-irq", pmuic);
-#if defined(CONFIG_MUIC_SUPPORT_CCIC)
-		irq_dcdtmr = pdata->irq_gpio + MAX77854_MUIC_IRQ_INT2_DCDTMR;
-		printk(" %s requesting irq no = %d\n",__func__,irq_dcdtmr);
-		ret = request_threaded_irq(irq_dcdtmr, NULL,
-                        muic_irq_thread, (IRQF_TRIGGER_FALLING | IRQF_ONESHOT),
-                        "muic-irq", pmuic);
-#endif
 
 		pmuic->irqs.irq_adc1k = irq_adc1k;
 		pmuic->irqs.irq_adcerr = irq_adcerr;
 		pmuic->irqs.irq_adc = irq_adc;
 		pmuic->irqs.irq_chgtyp = irq_chgtyp;
 		pmuic->irqs.irq_vbvolt = irq_vbvolt;
-#if defined(CONFIG_MUIC_SUPPORT_CCIC)
-		pmuic->irqs.irq_dcdtmr = irq_dcdtmr;
-#endif
 
 	}
 	else
@@ -410,9 +395,6 @@ static void muic_free_irqs(muic_data_t *pmuic)
 	FREE_IRQ(pmuic->irqs.irq_adc, pmuic, "muic-adc");
 	FREE_IRQ(pmuic->irqs.irq_adcerr, pmuic, "muic-adcerr");
 	FREE_IRQ(pmuic->irqs.irq_adc1k, pmuic, "muic-adc1k");
-#if defined(CONFIG_MUIC_SUPPORT_CCIC)
-	FREE_IRQ(pmuic->irqs.irq_dcdtmr, pmuic, "muic-dcdtmr");
-#endif
 }
 
 static int muic_probe(struct platform_device *pdev)
@@ -469,7 +451,6 @@ static int muic_probe(struct platform_device *pdev)
 	pmuic->is_otg_test = false;
 	pmuic->attached_dev = ATTACHED_DEV_UNKNOWN_MUIC;
 	pmuic->is_gamepad = false;
-	pmuic->is_dcdtmr_intr = false;
 
 	if(!strcmp(pmuic->chip_name,"max,max77854"))
 		pmuic->vps_table = VPS_TYPE_TABLE;
@@ -523,7 +504,6 @@ static int muic_probe(struct platform_device *pdev)
 
 #if defined(CONFIG_MUIC_SUPPORT_CCIC)
 	pmuic->opmode = get_ccic_info() & 0x0F;
-	pmuic->afc_water_disable = false;
 #endif
 	/* set switch device's driver_data */
 	dev_set_drvdata(switch_device, pmuic);

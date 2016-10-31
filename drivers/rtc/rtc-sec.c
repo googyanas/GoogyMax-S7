@@ -67,7 +67,7 @@ static const unsigned int s2mps15_buck_coeffs[11][2] = { {15625, 17857}, {46875,
 static const unsigned int s2mps15_ldo_coeff = 4688;
 
 static const unsigned int s2mps16_buck_coeffs[12] = {S2MPS16_BS, S2MPS16_BT, S2MPS16_BS,
-	S2MPS16_BS, S2MPS16_BS, S2MPS16_BD, S2MPS16_BS, S2MPS16_BV, S2MPS16_BV,
+	S2MPS16_BS, S2MPS16_BS, S2MPS16_BT, S2MPS16_BS, S2MPS16_BV, S2MPS16_BV,
 	S2MPS16_BS, S2MPS16_BS, S2MPS16_BB};
 
 static const unsigned int s2mps16_ldo_coeffs[38] = {S2MPS16_L600, S2MPS16_L300, S2MPS16_L450,
@@ -523,8 +523,7 @@ static void s2m_adc_read_data(struct s2m_rtc_info *info)
 static unsigned int get_coeff(struct device *dev, u8 adc_reg_num)
 {
 	struct s2m_rtc_info *info = dev_get_drvdata(dev);
-	unsigned int coeff = 0;
-	unsigned int temp;
+	unsigned int coeff, temp;
 	u8 is_evt2;
 
 	switch(info->iodev->device_type) {
@@ -720,17 +719,18 @@ static u8 buf_to_adc_reg(const char *buf, int device_type)
 	if (kstrtou8(buf, 16, &adc_reg_num))
 		return 0;
 
-	if (device_type == S2MPS15X) {
+	switch (device_type) {
+	case S2MPS15X:
 		if ((adc_reg_num >= S2MPS15_BUCK_START && adc_reg_num <= S2MPS15_BUCK_END) ||
 			(adc_reg_num >= S2MPS15_LDO_START && adc_reg_num <= S2MPS15_LDO_END))
 		return adc_reg_num;
-	} else if (device_type == S2MPS16X) {
+	case S2MPS16X:
 		if ((adc_reg_num >= S2MPS16_BUCK_START && adc_reg_num <= S2MPS16_BUCK_END) ||
 			(adc_reg_num >= S2MPS16_LDO_START && adc_reg_num <= S2MPS16_LDO_END))
 		return adc_reg_num;
+	default:
+		return 0;
 	}
-
-	return 0;
 }
 
 static void adc_reg_update(struct device *dev)
@@ -777,7 +777,6 @@ static void adc_ctrl1_update(struct device *dev)
 
 		/* ADC Continuous ON */
 		sec_reg_write(info->iodev, S2MPS15_REG_ADC_CTRL2, S2MPS15_ADCEN_MASK);
-		break;
 	case S2MPS16X:
 		/* ADC temporarily off */
 		sec_reg_write(info->iodev, S2MPS16_REG_ADC_CTRL2, 0);
@@ -787,7 +786,6 @@ static void adc_ctrl1_update(struct device *dev)
 
 		/* ADC Continuous ON */
 		sec_reg_write(info->iodev, S2MPS16_REG_ADC_CTRL2, S2MPS16_ADCEN_MASK);
-		break;
 	}
 }
 

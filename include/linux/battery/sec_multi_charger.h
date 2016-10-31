@@ -40,12 +40,10 @@ struct sec_multi_charger_platform_data {
 	char *sub_charger_name;
 
 	bool is_serial;
-	bool aicl_disable;
 
 	unsigned int sub_charger_condition;
 	int sub_charger_condition_current_max;
 	int sub_charger_condition_current_now;
-	int sub_charger_enable_current_now;
 	unsigned int *sub_charger_condition_online;
 	unsigned int sub_charger_condition_online_size;
 
@@ -54,8 +52,6 @@ struct sec_multi_charger_platform_data {
 
 	unsigned int main_charger_current_level;
 	unsigned int sub_charger_current_level;
-
-	unsigned int sub_charger_current_max;
 };
 
 struct sec_multi_charger_info {

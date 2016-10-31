@@ -33,18 +33,16 @@ extern "C" {
 /*----------------------------------------------------------------------*/
 /*  Constant & Macro Definitions                                        */
 /*----------------------------------------------------------------------*/
-#define get_next_clus(sb, pclu)		fat_ent_get(sb, *(pclu), pclu)
-#define get_next_clus_safe(sb, pclu)	fat_ent_get_safe(sb, *(pclu), pclu)
 
 /* file status */
-/* this prevents
- * fscore_write_inode, fscore_map_clus, ... with the unlinked inodes
- * from corrupting on-disk dentry data.
- *
- * The fid->dir value of unlinked inode will be DIR_DELETED
- * and those functions must check if fid->dir is valid prior to
- * the calling of get_dentry_in_dir()
- */
+/* by Sanghoon Hong
+   this prevents 
+   ffsWriteStat, ffsMapCluster, ... w/ the unlinked inodes
+   from corrupting on-disk dentry data.
+
+   The fid->dir value of unlinked inode will be DIR_DELETED
+   and those functions must check if fid->dir is valid prior to the calling of get_dentry_in_dir()
+*/
 #define DIR_DELETED				0xFFFF0321
 
 /*----------------------------------------------------------------------*/
@@ -62,8 +60,6 @@ typedef struct {
 	// __buf should be the last member
 	void *__buf;
 } ENTRY_SET_CACHE_T;
-
-
 
 /*----------------------------------------------------------------------*/
 /*  External Function Declarations                                      */
@@ -140,7 +136,6 @@ s32   dcache_readahead(struct super_block *sb, u32 sec);
 s32 fat_ent_ops_init(struct super_block *sb);
 s32 fat_ent_get(struct super_block *sb, u32 loc, u32 *content);
 s32 fat_ent_set(struct super_block *sb, u32 loc, u32 content);
-s32 fat_ent_get_safe(struct super_block *sb, u32 loc, u32 *content);
 
 /* core_fat.c : core code for fat */
 s32 fat_generate_dos_name_new(struct super_block *sb, CHAIN_T *p_dir, DOS_NAME_T *p_dosname, s32 n_entries);

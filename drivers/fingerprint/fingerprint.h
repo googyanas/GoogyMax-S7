@@ -31,18 +31,12 @@ enum {
 	SENSOR_VIPER,
 	SENSOR_RAPTOR,
 	SENSOR_EGIS,
-	SENSOR_VIPER_WOG,
 };
 
-#define SENSOR_STATUS_SIZE 6
-static char sensor_status[SENSOR_STATUS_SIZE][10] ={"unknown", "failed",
-	"viper", "raptor", "egis", "viper_wog"};
+#define SENSOR_STATUS_SIZE 5
+static char sensor_status[SENSOR_STATUS_SIZE][8] ={"unknown", "failed",
+	"viper", "raptor", "egis"};
 
-/* For Finger Detect Mode */
-enum {
-	DETECT_NORMAL = 0,
-	DETECT_ADM,			// Always on Detect Mode
-};
 
 #ifdef CONFIG_SENSORS_FINGERPRINT_DUALIZATION
 extern int FP_CHECK; /* extern variable */
@@ -51,7 +45,6 @@ extern int FP_CHECK; /* extern variable */
 #ifdef ENABLE_SENSORS_FPRINT_SECURE
 #define MC_FC_FP_PM_SUSPEND ((uint32_t)(0x83000021))
 #define MC_FC_FP_PM_RESUME ((uint32_t)(0x83000022))
-#define MC_FC_FP_PM_SUSPEND_RETAIN ((uint32_t)(0x83000026))
 
 /* using for awake the samsung FP daemon */
 extern bool fp_lockscreen_mode;
