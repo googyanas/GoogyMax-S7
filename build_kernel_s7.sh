@@ -1,6 +1,6 @@
 #!/bin/sh
-
-export CROSS_COMPILE=/home/anas/S7/sabermod/bin/aarch64-
+export CROSS_COMPILE=/usr/bin/aarch64-linux-gnu-
+# export CROSS_COMPILE=/home/anas/S7/sabermod/bin/aarch64-
 export KCONFIG_NOTIMESTAMP=true
 export ARCH=arm64
 export SUBARCH=arm64
@@ -28,6 +28,7 @@ cd /home/anas/S7/Out
 ./packimg.sh
 
 cd /home/anas/S7/Release
+rm -f /home/anas/S7/GoogyMax-S7_Kernel_MM_v${1}.zip
 zip -r ../GoogyMax-S7_Kernel_MM_v${1}.zip .
 
 adb push /home/anas/S7/GoogyMax-S7_Kernel_MM_v${1}.zip /sdcard/GoogyMax-S7_Kernel_MM_v${1}.zip
